@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+    <title>খাম্বা তারেক - খাম্বা এড়াও! চাঁদা বাড়াও⚡</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: Arial, sans-serif; touch-action: none; }
+        canvas { display: block; }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 32px;
+            text-shadow: 3px 3px 6px #000;
+            pointer-events: none;
+        }
+        #info {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            background: rgba(0,0,0,0.7);
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 22px;
+            text-align: center;
+            z-index: 10;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 28px;
+            text-align: center;
+            background-color:black;
+            paddng: 20px 40px;
+            border-radius: 15px;
+            z-index: 20;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff4444;
+            font-size: 48px;
+            text-align: center;
+            background: rgba(0,0,0,0.8);
+            padding: 40px 80px;
+            border-radius: 20px;
+            display: none;
+            z-index: 30;
+        }
+        #restartBtn {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 20px;
+            text-align: center;
+            pointer-events: none;
+            display: none;
+        }
+
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.min.js"></script>
+</head>
+<body>
+   
+    <div id="loading">
+   <img src="https://raw.githubusercontent.com/motiur34245/Tarek-Rahman-/main/grok_image_xx46527-removebg-preview.png" width="200" height="150">
+
+⚡<br> খাম্বা তারেক গেমটি খেলতে ক্লিক করুন </div>
+    <div id="ui">দূরত্ব: <span id="distance">0</span> m  &nbsp;&nbsp;|&nbsp;&nbsp;চাঁদা : <span id="coinCount">0</span></div>
+    <div id="controls"></div>
+    
+    <div id="gameOver">
+        Game Over!<br>
+        <button id="restartBtn">আবার খেলুন</button>
+    </div>
+
+    <audio id="bgm" loop preload="auto">
+        <source src="https://raw.githubusercontent.com/motiur34245/Tarek-Rahman-/main/KHAMBA___%E0%A6%96%E0%A6%BE%E0%A6%AE%E0%A7%8D%E0%A6%AC%E0%A6%BE___Rap_song____SOH____%E0%A6%96%E0%A6%BE%E0%A6%AE%E0%A7%8D%E0%A6%AC%E0%A6%BE_%E0%A6%A4%E0%A6%BE%E0%A6%B0%E0%A7%87%E0%A6%95_%E0%A6%B0%E0%A6%B9%E0%A6%AE%E0%A6%BE%E0%A6%A8___New_rap_song_2026___New_song_2026(128k).mp3" type="audio/mpeg">
+    </audio>
+    <audio id="coinSound">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const music = document.getElementById('bgm');
+        const coinSound = document.getElementById('coinSound');
+        const loadingDiv = document.getElementById('loading');
+        const uiDiv = document.getElementById('ui');
+        const controlsDiv = document.getElementById('controls');
+        const gameOverDiv = document.getElementById('gameOver');
+        const distEl = document.getElementById('distance');
+        const coinCountEl = document.getElementById('coinCount');
+
+        function startGame() {
+            loadingDiv.style.display = 'none';
+            uiDiv.style.display = 'block';
+            controlsDiv.style.display = 'block';
+            animate();
+        }
+
+        music.play().then(startGame).catch(() => {
+
+            document.body.addEventListener('click', () => music.play().then(startGame), {once: true});
+        });
+
+        music.addEventListener('canplaythrough', () => {
+            if (music.paused) music.play().then(startGame);
+        }, {once: true});
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x88CCFF);
+        scene.fog = new THREE.Fog(0x88CCFF, 50, 200);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(50, 100, 50);
+        scene.add(sun);
+
+        const loader = new THREE.TextureLoader();
+        const gltfLoader = new THREE.GLTFLoader();
+
+        // Road - ইনফিনিট রিপিট
+        const roadTex = loader.load('https://opengameart.org/sites/default/files/asphalt_road_0.png');
+        roadTex.wrapS = roadTex.wrapT = THREE.RepeatWrapping;
+        roadTex.repeat.set(10, 500);
+        roadTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+        const roadMaterial = new THREE.MeshStandardMaterial({
+            map: roadTex,
+            roughness: 0.8,
+            metalness: 0.5
+        });
+
+        const road = new THREE.Mesh(
+            new THREE.PlaneGeometry(20, 10000),
+            roadMaterial
+        );
+        road.rotation.x = -Math.PI / 2;
+        road.position.y = -0.01;
+        scene.add(road);
+
+        // Side lines (হলুদ) - ইনফিনিট গ্রুপ
+        const yellowMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const sideLineGeo = new THREE.PlaneGeometry(0.8, 1000);
+        sideLineGeo.rotateX(-Math.PI / 2);
+
+        const leftLines = new THREE.Group();
+        const rightLines = new THREE.Group();
+        scene.add(leftLines);
+        scene.add(rightLines);
+
+        for (let i = 0; i < 20; i++) {
+            const leftLine = new THREE.Mesh(sideLineGeo, yellowMat);
+            leftLine.position.set(-5, 0.02, i * -1000);
+            leftLines.add(leftLine);
+
+            const rightLine = leftLine.clone();
+            rightLine.position.x = 5;
+            rightLines.add(rightLine);
+        }
+
+        // Dashed center (সাদা দাগ) - ইনফিনিট
+        const dashGroup = new THREE.Group();
+        scene.add(dashGroup);
+        const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const dashGeo = new THREE.PlaneGeometry(0.5, 5);
+        dashGeo.rotateX(-Math.PI / 2);
+
+        const dashLen = 5, gap = 4, seg = dashLen + gap;
+        const totalDashes = 400;
+
+        for (let i = 0; i < totalDashes; i++) {
+            const dash = new THREE.Mesh(dashGeo, dashMat);
+            dash.position.z = i * -seg;
+            dashGroup.add(dash);
+        }
+
+        // Runner
+        const runnerTex = loader.load('https://raw.githubusercontent.com/motiur34245/Tarek-Rahman-/main/grok_image_xx46527-removebg-preview.png');
+        const runnerMat = new THREE.SpriteMaterial({ map: runnerTex, transparent: true });
+        const runner = new THREE.Sprite(runnerMat);
+        runner.scale.set(9, 10, 1);
+        runner.position.set(0, 5, -10);
+        scene.add(runner);
+
+        camera.position.set(0, 12, 0);
+
+        // ────────────────────────────────────────────────
+        //          নতুন Lane-based Swipe + Keyboard Control
+        // ────────────────────────────────────────────────
+
+        // লেন সিস্টেম: -1 = বাম, 0 = মাঝে, +1 = ডান
+        let currentLane = 0;
+        const lanePositions = [-5, 0, 5];   // x অবস্থান
+        const laneSwitchDuration = 180;     // মিলিসেকেন্ডে স্মুথ ট্রানজিশন
+        let targetX = 0;
+        let startX = 0;
+        let switchStartTime = 0;
+        let isSwitching = false;
+
+        // Swipe detection variables
+        let touchStartX = 0;
+        let touchStartY = 0;
+        const swipeMinDistance = 60;       // পিক্সেল – এতটা সরলেই swipe গণ্য হবে
+
+        // Touch events – শুধু swipe detect করবো (ধরে রাখলে চলবে না)
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // স্ক্রল বন্ধ করতে
+        }, { passive: false });
+
+        document.addEventListener('touchend', (e) => {
+            if (e.changedTouches.length === 1 && !isSwitching) {
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+
+                const diffX = touchEndX - touchStartX;
+                const diffY = touchEndY - touchStartY;
+
+                // অনেক বেশি উপর-নিচ গেলে swipe গণ্য করব না
+                if (Math.abs(diffY) > Math.abs(diffX) * 1.5) return;
+
+                if (Math.abs(diffX) >= swipeMinDistance) {
+                    if (diffX > 0) {
+                        // ডানে swipe → লেন +1 (সর্বোচ্চ +1)
+                        if (currentLane < 1) {
+                            currentLane++;
+                            startSwitch();
+                        }
+                    } else {
+                        // বামে swipe → লেন -1 (সর্বনিম্ন -1)
+                        if (currentLane > -1) {
+                            currentLane--;
+                            startSwitch();
+                        }
+                    }
+                }
+            }
+        }, { passive: false });
+
+        // Keyboard control (আগের মতোই – তাৎক্ষণিক লেন চেঞ্জ)
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            const key = e.key.toLowerCase();
+            keys[key] = true;
+
+            if (!isSwitching) {
+                if (key === 'a' || key === 'arrowleft') {
+                    if (currentLane > -1) {
+                        currentLane--;
+                        startSwitch();
+                    }
+                }
+                if (key === 'd' || key === 'arrowright') {
+                    if (currentLane < 1) {
+                        currentLane++;
+                        startSwitch();
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('keyup', e => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // লেন চেঞ্জ শুরু করার ফাংশন
+        function startSwitch() {
+            isSwitching = true;
+            startX = runner.position.x;
+            targetX = lanePositions[currentLane + 1]; // -1→0, 0→1, 1→2 index
+            switchStartTime = performance.now();
+        }
+
+        // Sparks (অপরিবর্তিত)
+        let sparkParticles = [];
+        function createSparks(pos) {
+            if (sparkParticles.length > 10) return;
+            const count = 15;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+
+            for (let i = 0; i < count; i++) {
+                positions[i*3] = (Math.random()-0.5)*1.5;
+                positions[i*3+1] = Math.random()*3;
+                positions[i*3+2] = (Math.random()-0.5)*1.5;
+                colors[i*3] = 1; colors[i*3+1] = 0.9; colors[i*3+2] = 0.1 + Math.random()*0.4;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.35,
+                vertexColors: true,
+                transparent: true,
+                opacity: 1,
+                blending: THREE.AdditiveBlending
+            });
+
+            const points = new THREE.Points(geometry, material);
+            points.position.copy(pos);
+            scene.add(points);
+
+            sparkParticles.push({mesh: points, life: 40 + Math.random()*20});
+        }
+
+        function updateSparks() {
+            for (let i = sparkParticles.length - 1; i >= 0; i--) {
+                const p = sparkParticles[i];
+                p.life--;
+                p.mesh.material.opacity = p.life / 60;
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    p.mesh.geometry.dispose();
+                    p.mesh.material.dispose();
+                    sparkParticles.splice(i, 1);
+                }
+            }
+        }
+
+        // Coins (অপরিবর্তিত)
+        let score = 0;
+        const coins = [];
+        let coinInterval;
+
+        function createCoin() {
+            if (coins.length > 8) return;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+            gradient.addColorStop(0, '#ffd700');
+            gradient.addColorStop(0.5, '#ffed4e');
+            gradient.addColorStop(1, '#d4af37');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(128, 128, 120, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = '#b8860b';
+            ctx.lineWidth = 8;
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+
+            ctx.font = 'bold 80px Arial Black, Arial';
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur = 15;
+            ctx.fillText('চাঁদা', 128, 128);
+
+            ctx.font = 'bold 50px Arial';
+            ctx.fillText('১০ টাকা', 128, 180);
+
+            const coinTex = new THREE.CanvasTexture(canvas);
+            const coinMat = new THREE.SpriteMaterial({ 
+                map: coinTex, 
+                transparent: true,
+                alphaTest: 0.1
+            });
+
+            const sprite = new THREE.Sprite(coinMat);
+            sprite.scale.set(6, 6, 1);
+
+            const lane = Math.floor(Math.random() * 3) - 1;
+            const xPos = lane * 5;
+
+            sprite.position.set(
+                xPos,
+                3 + Math.random() * 4,
+                runner.position.z - 220 - Math.random() * 280
+            );
+
+            sprite.userData = { rotSpeed: 0.08 + Math.random() * 0.04 };
+
+            scene.add(sprite);
+            coins.push(sprite);
+        }
+
+        coinInterval = setInterval(() => {
+            if (Math.random() < 0.6) createCoin();
+        }, 1200);
+
+        // Obstacles (অপরিবর্তিত – শুধু collision-এ getWorldPosition অপসারণ করা যায়, কিন্তু রাখা হলো)
+        const obstacles = [];
+        let obstacleInterval;
+        
+        function createObstacle() {
+            if (obstacles.length > 6) return;
+            
+            const group = new THREE.Group();
+            const xPos = Math.random() < 0.5 ? -5 : 5;
+
+            const poleGeo = new THREE.CylinderGeometry(0.35, 0.45, 18, 8);
+            const poleMat = new THREE.MeshStandardMaterial({color: 0x8B4513, roughness: 0.85});
+            const pole = new THREE.Mesh(poleGeo, poleMat);
+            pole.userData.isPole = true;
+            pole.position.y = 9;
+            group.add(pole);
+
+            const armGeo = new THREE.BoxGeometry(9, 0.5, 0.5);
+            const armMat = new THREE.MeshStandardMaterial({color: 0x5C4033});
+            const arm = new THREE.Mesh(armGeo, armMat);
+            arm.position.y = 14.5;
+            group.add(arm);
+
+            const insGeo = new THREE.CylinderGeometry(0.5, 0.3, 1.4, 6);
+            const insMat = new THREE.MeshStandardMaterial({
+                color: 0xE0FFFF,
+                emissive: 0x88ccff,
+                emissiveIntensity: 0.6,
+                roughness: 0.2
+            });
+
+            for (let i = -1; i <= 1; i++) {
+                const ins = new THREE.Mesh(insGeo, insMat);
+                ins.rotation.x = Math.PI / 2;
+                ins.position.set(i * 3.5, 14.5, 0);
+                group.add(ins);
+
+                const light = new THREE.PointLight(0x88aaff, 1.2, 20);
+                light.position.set(i * 3.5, 15.5, 0);
+                group.add(light);
+            }
+
+            group.position.set(xPos, 0, runner.position.z - 180 - Math.random() * 200);
+            scene.add(group);
+            obstacles.push(group);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(0,0,0,0.65)';
+            ctx.fillRect(0,0,256,128);
+            ctx.font = 'bold 85px Arial';
+            ctx.fillStyle = '#ffff00';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = '#ff6600';
+            ctx.shadowBlur = 15;
+            ctx.fillText('খাম্বা', 128, 64);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({map: tex, transparent: true});
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(9, 4.5, 1);
+            sprite.position.set(xPos, 19, group.position.z);
+            scene.add(sprite);
+            obstacles.push(sprite);
+        }
+
+        obstacleInterval = setInterval(() => {
+            if (Math.random() < 0.65) createObstacle();
+        }, 2200);
+
+        let t = 0, offset = 0, dist = 0;
+        const speed = 0.5;
+        let gameRunning = true;
+
+        function animate() {
+            if (!gameRunning) return;
+            requestAnimationFrame(animate);
+
+            t += 0.01;
+            runner.position.y = 5 + Math.sin(t * 0) * 0.9;
+
+            offset += speed / 80;
+            roadTex.offset.y = offset;
+
+            const lineOffset = offset * 80;
+            leftLines.position.z = lineOffset;
+            rightLines.position.z = lineOffset;
+            dashGroup.position.z = lineOffset;
+
+            // ─── লেন সুইচ স্মুথ অ্যানিমেশন ───
+            if (isSwitching) {
+                const elapsed = performance.now() - switchStartTime;
+                const progress = Math.min(elapsed / laneSwitchDuration, 1);
+                
+                // ease-out quadratic
+                const eased = 1 - (1 - progress) ** 2;
+                
+                runner.position.x = startX + (targetX - startX) * eased;
+
+                if (progress >= 1) {
+                    runner.position.x = targetX;
+                    isSwitching = false;
+                }
+
+
+
+
+
+
+            }
+
+            // Coins update
+            // Coins update (LANE BASED)
+for (let i = coins.length - 1; i >= 0; i--) {
+    const coin = coins[i];
+    coin.position.z += speed * 1.2;
+    coin.rotation.y += coin.userData.rotSpeed;
+
+    // মানুষ আর কয়েন একই লেনে আছে কি?
+    const sameLane = Math.abs(coin.position.x - runner.position.x) < 1.5;
+
+    // সামনে–পিছনে কাছে এসেছে কি?
+    const closeZ = Math.abs(coin.position.z - runner.position.z) < 5;
+
+    if (sameLane && closeZ) {
+        score += 10;
+        coinCountEl.textContent = score;
+        scene.remove(coin);
+        coin.material.map.dispose();
+        coin.material.dispose();
+        coins.splice(i, 1);
+        createSparks(coin.position.clone());
+        coinSound.currentTime = 0;
+        coinSound.play().catch(() => {});
+    }
+
+    if (coin.position.z > runner.position.z + 60) {
+        scene.remove(coin);
+        coin.material.map.dispose();
+        coin.material.dispose();
+        coins.splice(i, 1);
+    }
+}
+
+            // Obstacles update
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.position.z += speed * 1.2;
+
+                if (obs.type === "Group") {
+                    obs.children.forEach(child => {
+                        if (child.userData.isPole) {
+                            const dx = Math.abs(child.getWorldPosition(new THREE.Vector3()).x - runner.position.x);
+                            const dz = Math.abs(child.getWorldPosition(new THREE.Vector3()).z - runner.position.z);
+
+                            if (dz < 4 && dx < 1.2) {
+                                gameRunning = false;
+                                clearInterval(coinInterval);
+                                clearInterval(obstacleInterval);
+                                gameOverDiv.style.display = 'block';
+                            }
+                        }
+                    });
+                }
+
+                if (obs.position.z > runner.position.z + 60) {
+                    scene.remove(obs);
+                    if (obs.children) {
+                        obs.children.forEach(child => {
+                            if (child.geometry) child.geometry.dispose();
+                            if (child.material) child.material.dispose();
+                        });
+                    } else if (obs.material) {
+                        obs.material.map?.dispose();
+                        obs.material.dispose();
+                    }
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            updateSparks();
+
+            dist += speed;
+            distEl.textContent = Math.floor(dist);
+
+            camera.position.z = runner.position.z + 25;
+           camera.lookAt(0, runner.position.y + 4, runner.position.z - 10);
+
+            renderer.render(scene, camera);
+        }
+
+        document.getElementById('restartBtn').addEventListener('click', () => location.reload());
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+
+
+<script>
+/* ======================================
+   🎵 AUTO COIN SOUND PATCH (NO DELETE)
+   ====================================== */
+
+// একটু অপেক্ষা করি যাতে আগের সব কোড লোড হয়
+window.addEventListener("load", () => {
+
+  // যদি আগেই coinSound থাকে, সেটাকেই ব্যবহার করবো
+  if (typeof coinSound !== "undefined") {
+
+    // ভলিউম সেট
+    coinSound.volume = 0.6;
+  }
+
+  // যদি bg music থাকে
+  if (typeof music !== "undefined") {
+    music.volume = 0.25;
+  }
+
+  // আগের coinSound.play কে হুক করছি
+  const originalPlay = coinSound?.play?.bind(coinSound);
+
+  if (originalPlay) {
+    coinSound.play = function () {
+
+      // bg music একটু নরম
+      if (music) music.volume = 0.15;
+
+      // আসল কয়েন সাউন্ড
+      this.currentTime = 0;
+      originalPlay();
+
+      // ২০০ms পরে আবার bg music ঠিক
+      setTimeout(() => {
+        if (music) music.volume = 0.25;
+      }, 200);
+    };
+  }
+
+});
+</script>
+</body>
+  </html>
