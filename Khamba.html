@@ -38,7 +38,7 @@
             font-size: 28px;
             text-align: center;
             background-color:black;
-            paddng: 20px 40px;
+            padding: 20px 40px;
             border-radius: 15px;
             z-index: 20;
         }
@@ -78,6 +78,39 @@
             display: none;
         }
 
+        /* Ad containers */
+        .ad-container {
+            position: absolute;
+            z-index: 25;
+            pointer-events: auto;
+        }
+        #ad-loading {
+            top: 10px;
+            right: 10px;
+            width: 300px;
+            height: 250px;
+        }
+        #ad-gameover {
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, 0);
+            width: 300px;
+            height: 250px;
+            margin-top: 20px;
+        }
+        #ad-floating {
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            height: 250px;
+            opacity: 0;
+            transition: opacity 0.6s;
+            pointer-events: none;
+        }
+        #ad-floating.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.min.js"></script>
@@ -85,15 +118,56 @@
 <body>
    
     <div id="loading">
-   <img src="https://raw.githubusercontent.com/motiur34245/Tarek-Rahman-/main/grok_image_xx46527-removebg-preview.png" width="200" height="150">
+        <img src="https://raw.githubusercontent.com/motiur34245/Tarek-Rahman-/main/grok_image_xx46527-removebg-preview.png" width="200" height="150">
+        ⚡<br> খাম্বা তারেক গেমটি খেলতে ক্লিক করুন 
+        <div id="ad-loading" class="ad-container">
+            <!-- Adsterra Banner - Loading screen -->
+            <script>
+              atOptions = {
+                'key' : '538c7a65a07a94509a1dd87d394379fc',
+                'format' : 'iframe',
+                'height' : 250,
+                'width' : 300,
+                'params' : {}
+              };
+            </script>
+            <script src="https://www.highperformanceformat.com/538c7a65a07a94509a1dd87d394379fc/invoke.js"></script>
+        </div>
+    </div>
 
-⚡<br> খাম্বা তারেক গেমটি খেলতে ক্লিক করুন </div>
     <div id="ui">দূরত্ব: <span id="distance">0</span> m  &nbsp;&nbsp;|&nbsp;&nbsp;চাঁদা : <span id="coinCount">0</span></div>
     <div id="controls"></div>
     
     <div id="gameOver">
         Game Over!<br>
         <button id="restartBtn">আবার খেলুন</button>
+        <div id="ad-gameover" class="ad-container">
+            <!-- Adsterra Banner - Game Over -->
+            <script>
+              atOptions = {
+                'key' : '538c7a65a07a94509a1dd87d394379fc',
+                'format' : 'iframe',
+                'height' : 250,
+                'width' : 300,
+                'params' : {}
+              };
+            </script>
+            <script src="https://www.highperformanceformat.com/538c7a65a07a94509a1dd87d394379fc/invoke.js"></script>
+        </div>
+    </div>
+
+    <!-- Floating ad during gameplay (shows temporarily) -->
+    <div id="ad-floating" class="ad-container">
+        <script>
+          atOptions = {
+            'key' : '538c7a65a07a94509a1dd87d394379fc',
+            'format' : 'iframe',
+            'height' : 250,
+            'width' : 300,
+            'params' : {}
+          };
+        </script>
+        <script src="https://www.highperformanceformat.com/538c7a65a07a94509a1dd87d394379fc/invoke.js"></script>
     </div>
 
     <audio id="bgm" loop preload="auto">
@@ -112,16 +186,26 @@
         const gameOverDiv = document.getElementById('gameOver');
         const distEl = document.getElementById('distance');
         const coinCountEl = document.getElementById('coinCount');
+        const adFloating = document.getElementById('ad-floating');
 
         function startGame() {
             loadingDiv.style.display = 'none';
             uiDiv.style.display = 'block';
             controlsDiv.style.display = 'block';
             animate();
+
+            // গেম চলাকালীন প্রতি ~35 সেকেন্ড পর অ্যাড দেখানো (৮ সেকেন্ডের জন্য)
+            setInterval(() => {
+                if (gameRunning) {
+                    adFloating.classList.add('visible');
+                    setTimeout(() => {
+                        adFloating.classList.remove('visible');
+                    }, 3000);
+                }
+            }, 11000);
         }
 
         music.play().then(startGame).catch(() => {
-
             document.body.addEventListener('click', () => music.play().then(startGame), {once: true});
         });
 
@@ -213,25 +297,19 @@
 
         camera.position.set(0, 12, 0);
 
-        // ────────────────────────────────────────────────
-        //          নতুন Lane-based Swipe + Keyboard Control
-        // ────────────────────────────────────────────────
-
-        // লেন সিস্টেম: -1 = বাম, 0 = মাঝে, +1 = ডান
+        // লেন সিস্টেম
         let currentLane = 0;
-        const lanePositions = [-5, 0, 5];   // x অবস্থান
-        const laneSwitchDuration = 180;     // মিলিসেকেন্ডে স্মুথ ট্রানজিশন
+        const lanePositions = [-5, 0, 5];
+        const laneSwitchDuration = 180;
         let targetX = 0;
         let startX = 0;
         let switchStartTime = 0;
         let isSwitching = false;
 
-        // Swipe detection variables
         let touchStartX = 0;
         let touchStartY = 0;
-        const swipeMinDistance = 60;       // পিক্সেল – এতটা সরলেই swipe গণ্য হবে
+        const swipeMinDistance = 60;
 
-        // Touch events – শুধু swipe detect করবো (ধরে রাখলে চলবে না)
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 touchStartX = e.touches[0].clientX;
@@ -240,7 +318,7 @@
         }, { passive: false });
 
         document.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // স্ক্রল বন্ধ করতে
+            e.preventDefault();
         }, { passive: false });
 
         document.addEventListener('touchend', (e) => {
@@ -251,18 +329,15 @@
                 const diffX = touchEndX - touchStartX;
                 const diffY = touchEndY - touchStartY;
 
-                // অনেক বেশি উপর-নিচ গেলে swipe গণ্য করব না
                 if (Math.abs(diffY) > Math.abs(diffX) * 1.5) return;
 
                 if (Math.abs(diffX) >= swipeMinDistance) {
                     if (diffX > 0) {
-                        // ডানে swipe → লেন +1 (সর্বোচ্চ +1)
                         if (currentLane < 1) {
                             currentLane++;
                             startSwitch();
                         }
                     } else {
-                        // বামে swipe → লেন -1 (সর্বনিম্ন -1)
                         if (currentLane > -1) {
                             currentLane--;
                             startSwitch();
@@ -272,7 +347,6 @@
             }
         }, { passive: false });
 
-        // Keyboard control (আগের মতোই – তাৎক্ষণিক লেন চেঞ্জ)
         const keys = {};
         window.addEventListener('keydown', e => {
             const key = e.key.toLowerCase();
@@ -298,15 +372,13 @@
             keys[e.key.toLowerCase()] = false;
         });
 
-        // লেন চেঞ্জ শুরু করার ফাংশন
         function startSwitch() {
             isSwitching = true;
             startX = runner.position.x;
-            targetX = lanePositions[currentLane + 1]; // -1→0, 0→1, 1→2 index
+            targetX = lanePositions[currentLane + 1];
             switchStartTime = performance.now();
         }
 
-        // Sparks (অপরিবর্তিত)
         let sparkParticles = [];
         function createSparks(pos) {
             if (sparkParticles.length > 10) return;
@@ -354,7 +426,6 @@
             }
         }
 
-        // Coins (অপরিবর্তিত)
         let score = 0;
         const coins = [];
         let coinInterval;
@@ -424,7 +495,6 @@
             if (Math.random() < 0.6) createCoin();
         }, 1200);
 
-        // Obstacles (অপরিবর্তিত – শুধু collision-এ getWorldPosition অপসারণ করা যায়, কিন্তু রাখা হলো)
         const obstacles = [];
         let obstacleInterval;
         
@@ -515,62 +585,46 @@
             rightLines.position.z = lineOffset;
             dashGroup.position.z = lineOffset;
 
-            // ─── লেন সুইচ স্মুথ অ্যানিমেশন ───
             if (isSwitching) {
                 const elapsed = performance.now() - switchStartTime;
                 const progress = Math.min(elapsed / laneSwitchDuration, 1);
-                
-                // ease-out quadratic
                 const eased = 1 - (1 - progress) ** 2;
-                
                 runner.position.x = startX + (targetX - startX) * eased;
 
                 if (progress >= 1) {
                     runner.position.x = targetX;
                     isSwitching = false;
                 }
-
-
-
-
-
-
             }
 
-            // Coins update
-            // Coins update (LANE BASED)
-for (let i = coins.length - 1; i >= 0; i--) {
-    const coin = coins[i];
-    coin.position.z += speed * 1.2;
-    coin.rotation.y += coin.userData.rotSpeed;
+            for (let i = coins.length - 1; i >= 0; i--) {
+                const coin = coins[i];
+                coin.position.z += speed * 1.2;
+                coin.rotation.y += coin.userData.rotSpeed;
 
-    // মানুষ আর কয়েন একই লেনে আছে কি?
-    const sameLane = Math.abs(coin.position.x - runner.position.x) < 1.5;
+                const sameLane = Math.abs(coin.position.x - runner.position.x) < 1.5;
+                const closeZ = Math.abs(coin.position.z - runner.position.z) < 5;
 
-    // সামনে–পিছনে কাছে এসেছে কি?
-    const closeZ = Math.abs(coin.position.z - runner.position.z) < 5;
+                if (sameLane && closeZ) {
+                    score += 10;
+                    coinCountEl.textContent = score;
+                    scene.remove(coin);
+                    coin.material.map.dispose();
+                    coin.material.dispose();
+                    coins.splice(i, 1);
+                    createSparks(coin.position.clone());
+                    coinSound.currentTime = 0;
+                    coinSound.play().catch(() => {});
+                }
 
-    if (sameLane && closeZ) {
-        score += 10;
-        coinCountEl.textContent = score;
-        scene.remove(coin);
-        coin.material.map.dispose();
-        coin.material.dispose();
-        coins.splice(i, 1);
-        createSparks(coin.position.clone());
-        coinSound.currentTime = 0;
-        coinSound.play().catch(() => {});
-    }
+                if (coin.position.z > runner.position.z + 60) {
+                    scene.remove(coin);
+                    coin.material.map.dispose();
+                    coin.material.dispose();
+                    coins.splice(i, 1);
+                }
+            }
 
-    if (coin.position.z > runner.position.z + 60) {
-        scene.remove(coin);
-        coin.material.map.dispose();
-        coin.material.dispose();
-        coins.splice(i, 1);
-    }
-}
-
-            // Obstacles update
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 const obs = obstacles[i];
                 obs.position.z += speed * 1.2;
@@ -578,8 +632,10 @@ for (let i = coins.length - 1; i >= 0; i--) {
                 if (obs.type === "Group") {
                     obs.children.forEach(child => {
                         if (child.userData.isPole) {
-                            const dx = Math.abs(child.getWorldPosition(new THREE.Vector3()).x - runner.position.x);
-                            const dz = Math.abs(child.getWorldPosition(new THREE.Vector3()).z - runner.position.z);
+                            const worldPos = new THREE.Vector3();
+                            child.getWorldPosition(worldPos);
+                            const dx = Math.abs(worldPos.x - runner.position.x);
+                            const dz = Math.abs(worldPos.z - runner.position.z);
 
                             if (dz < 4 && dx < 1.2) {
                                 gameRunning = false;
@@ -612,7 +668,7 @@ for (let i = coins.length - 1; i >= 0; i--) {
             distEl.textContent = Math.floor(dist);
 
             camera.position.z = runner.position.z + 25;
-           camera.lookAt(0, runner.position.y + 4, runner.position.z - 10);
+            camera.lookAt(0, runner.position.y + 4, runner.position.z - 10);
 
             renderer.render(scene, camera);
         }
@@ -626,48 +682,27 @@ for (let i = coins.length - 1; i >= 0; i--) {
         });
     </script>
 
-
-<script>
-/* ======================================
-   🎵 AUTO COIN SOUND PATCH (NO DELETE)
-   ====================================== */
-
-// একটু অপেক্ষা করি যাতে আগের সব কোড লোড হয়
-window.addEventListener("load", () => {
-
-  // যদি আগেই coinSound থাকে, সেটাকেই ব্যবহার করবো
-  if (typeof coinSound !== "undefined") {
-
-    // ভলিউম সেট
-    coinSound.volume = 0.6;
-  }
-
-  // যদি bg music থাকে
-  if (typeof music !== "undefined") {
-    music.volume = 0.25;
-  }
-
-  // আগের coinSound.play কে হুক করছি
-  const originalPlay = coinSound?.play?.bind(coinSound);
-
-  if (originalPlay) {
-    coinSound.play = function () {
-
-      // bg music একটু নরম
-      if (music) music.volume = 0.15;
-
-      // আসল কয়েন সাউন্ড
-      this.currentTime = 0;
-      originalPlay();
-
-      // ২০০ms পরে আবার bg music ঠিক
-      setTimeout(() => {
-        if (music) music.volume = 0.25;
-      }, 200);
-    };
-  }
-
-});
-</script>
+    <script>
+    /* AUTO COIN SOUND PATCH */
+    window.addEventListener("load", () => {
+      if (typeof coinSound !== "undefined") {
+        coinSound.volume = 0.6;
+      }
+      if (typeof music !== "undefined") {
+        music.volume = 0.25;
+      }
+      const originalPlay = coinSound?.play?.bind(coinSound);
+      if (originalPlay) {
+        coinSound.play = function () {
+          if (music) music.volume = 0.15;
+          this.currentTime = 0;
+          originalPlay();
+          setTimeout(() => {
+            if (music) music.volume = 0.25;
+          }, 200);
+        };
+      }
+    });
+    </script>
 </body>
-  </html>
+    </html>
